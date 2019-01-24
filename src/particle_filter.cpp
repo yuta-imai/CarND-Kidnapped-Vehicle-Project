@@ -38,7 +38,7 @@ void ParticleFilter::init(double x, double y, double theta, double std[]) {
    */
   num_particles = 100;  // TODO: Set the number of particles
 
-  for(int i = 0; i < num_particles; ++i) {
+  for(int i = 0; i < num_particles; i++) {
     Particle p;
     p.id = i;
     normal_distribution<double> dist_x(x, 0.3);
@@ -51,7 +51,6 @@ void ParticleFilter::init(double x, double y, double theta, double std[]) {
     particles.push_back(p);
   }
   is_initialized = true;
-
 }
 
 void ParticleFilter::prediction(double delta_t, double std_pos[], 
@@ -66,17 +65,17 @@ void ParticleFilter::prediction(double delta_t, double std_pos[],
 
   for(int i = 0; i < particles.size(); i++) {
 
-    double x = velocity/yaw_rate * (sin(particles.at(i).theta + yaw_rate * delta_t) - sin(particles.at(i).theta));
-    double y = velocity/yaw_rate * (cos(particles.at(i).theta) - cos(particles.at(i).theta + yaw_rate*delta_t));
-    double theta = particles.at(i).theta + yaw_rate * delta_t;
+    double x = velocity/yaw_rate * (sin(particles[i].theta + yaw_rate * delta_t) - sin(particles[i].theta));
+    double y = velocity/yaw_rate * (cos(particles[i].theta) - cos(particles[i].theta + yaw_rate*delta_t));
+    double theta = particles[i].theta + yaw_rate * delta_t;
 
     normal_distribution<double> dist_x(x, 0.3);
     normal_distribution<double> dist_y(y, 0.3);
     normal_distribution<double> dist_theta(theta, 0.01);
 
-    particles.at(i).x = dist_x(gen);
-    particles.at(i).y = dist_y(gen);
-    particles.at(i).theta = dist_theta(gen);
+    particles[i].x = dist_x(gen);
+    particles[i].y = dist_y(gen);
+    particles[i].theta = dist_theta(gen);
 
   }
 
@@ -96,10 +95,10 @@ void ParticleFilter::dataAssociation(vector<LandmarkObs> predicted,
   for (int i = 0; i < observations.size(); i++) {
 
     double min_dist = INFINITY;
-    int index = -1;
+    int index = 0;
 
     for (int j = 0; j < predicted.size(); j++) {
-      double current_dist = sqrt(pow(observations.at(i).x - predicted.at(j).x,2) + pow(observations.at(i).y - predicted.at(j).y,2));
+      double current_dist = sqrt(pow(observations[i].x - predicted[j].x,2) + pow(observations[i].y - predicted[j].y,2));
 
       if(min_dist > current_dist){
         min_dist = current_dist;
@@ -107,7 +106,7 @@ void ParticleFilter::dataAssociation(vector<LandmarkObs> predicted,
       }
     }
 
-    observations.at(i).id = index;
+    observations[i].id = index;
   }
 
 }
@@ -131,14 +130,14 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
 
   for(int i = 0; i < particles.size(); i++) {
 
-    Particle p = particles.at(i);
+    Particle p = particles[i];
 
     vector<LandmarkObs> predictions;
 
     for(int j =0; j < map_landmarks.landmark_list.size(); j++) {
-      float lm_x = map_landmarks.landmark_list.at(j).x_f;
-      float lm_y = map_landmarks.landmark_list.at(j).x_f;
-      int lm_id = map_landmarks.landmark_list.at(j).id_i;
+      float lm_x = map_landmarks.landmark_list[j].x_f;
+      float lm_y = map_landmarks.landmark_list[j].x_f;
+      int lm_id = map_landmarks.landmark_list[j].id_i;
       float dist = sqrt(pow((lm_x - p.x),2) + pow((lm_y-p.y),2));
       if(dist < sensor_range) {
         predictions.push_back(LandmarkObs{ lm_id, lm_x, lm_y});
@@ -149,8 +148,8 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
     vector<LandmarkObs> observations_map;
     for(int j = 0; j < observations.size(); j++) {
       LandmarkObs ob;
-      ob.x = p.x + (cos(p.theta) * observations.at(j).x) - (sin(p.theta) * observations.at(j).y);
-      ob.y = p.y + (sin(p.theta) * observations.at(j).x) + (cos(p.theta) * observations.at(j).y);
+      ob.x = p.x + (cos(p.theta) * observations[j].x) - (sin(p.theta) * observations[j].y);
+      ob.y = p.y + (sin(p.theta) * observations[j].x) + (cos(p.theta) * observations[j].y);
       observations_map.push_back(ob);
     }
 
@@ -159,12 +158,12 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
     p.weight = 1.0;
 
     for(int j = 0; j < observations_map.size(); j++) {
-      LandmarkObs ob = observations_map.at(j);
+      LandmarkObs ob = observations_map[j];
 
       LandmarkObs predicted;
       for(int k = 0; k < predictions.size(); k++) {
-        if(predictions.at(k).id == ob.id) {
-          predicted = predictions.at(k);
+        if(predictions[k].id == ob.id) {
+          predicted = predictions[k];
         }
       }
 
@@ -186,30 +185,30 @@ void ParticleFilter::resample() {
 
   vector<Particle> new_particles;
 
-  vector<double> weidhts;
-  for (int i = 0; i < particles.size(); i++) {
-    weights.push_back(particles.at(i).weight);
+  vector<double> weights;
+  for (int i = 0; i < num_particles; i++) {
+    weights.push_back(particles[i].weight);
   }
 
-  uniform_int_distribution<int> distribution_int(0, particles.size());
-  auto index = distribution_int(gen);
+  uniform_int_distribution<int> uniintdist(0, num_particles-1);
+  auto index = uniintdist(gen);
 
   double max_weight = *max_element(weights.begin(), weights.end());
 
-  uniform_real_distribution<double> distribution_real(0.0, max_weight);
+  uniform_real_distribution<double> unirealdist(0.0, max_weight);
+
   double beta = 0.0;
 
-  for (int i = 0; i < particles.size(); i++) {
-    beta += distribution_real(gen) * 2.0;
-    while(beta > weights.at(index)) {
-      beta -= weidhts.at(index);
-      index = (index + 1) % particles.size();
+  for (int i = 0; i < num_particles; i++) {
+    beta += unirealdist(gen) * 2.0;
+    while (beta > weights[index]) {
+      beta -= weights[index];
+      index = (index + 1) % num_particles;
     }
-    new_particles.push_back(particles.at(index));
-  } 
+    new_particles.push_back(particles[index]);
+  }
 
   particles = new_particles;
-
 }
 
 void ParticleFilter::SetAssociations(Particle& particle, 
